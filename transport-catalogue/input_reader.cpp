@@ -4,8 +4,22 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <string>
 
 namespace input {
+     void CreateDatabase(std::istream& in, catalog::TransportCatalogue& catalogue) {
+
+        int base_request_count = 0;
+        std::cin >> base_request_count >> std::ws;
+        Reader reader;
+        for (int i = 0; i < base_request_count; ++i) {
+            std::string line;
+            std::getline(in, line);
+            reader.ParseLine(line);
+        }
+        reader.ApplyCommands(catalogue);
+    }
+
     /**
      * Парсит строку вида "10.123,  -30.1837" и возвращает пару координат (широта, долгота)
      */
