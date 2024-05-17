@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <string_view>
+#include <iostream>
+
 
 #include "geo.h"
 #include "transport_catalogue.h"
@@ -23,6 +25,7 @@ namespace input {
 
     class Reader {
     public:
+
         /**
          * Парсит строку в структуру CommandDescription и сохраняет результат в commands_
          */
@@ -36,4 +39,6 @@ namespace input {
     private:
         std::vector<CommandDescription> commands_;
     };
+
+    void CreateDatabase(std::istream& in, catalog::TransportCatalogue& catalogue);
 }
