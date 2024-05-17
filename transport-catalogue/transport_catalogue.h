@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <cassert>
 #include <vector>
 #include "geo.h"
@@ -23,14 +24,28 @@ namespace catalog {
 			std::vector<Stop*> marshrut;
 		};
 
-		void AddStop(std::string stop, Coordinates coordinats);
-		void AddBus(std::string bus, std::vector<std::string_view> stops);
+		void AddStop(const std::string& stop, const Coordinates& coordinates);
+		void AddBus(const std::string& bus, const std::vector<std::string_view>& stops);
 
-		Stop& FindStop(std::string_view stop) const;
-		Bus& FindBus(std::string_view bus) const;
+		Stop* FindStop(std::string_view stop) const;
+		Bus* FindBus(std::string_view bus) const;
 
-		std::vector<double> BusInfo(std::string_view bus) const;
-		std::vector<std::string> StopInfo(std::string_view stop) const;
+		struct BusInformation {
+			explicit operator bool() const {
+				return count_stops ==0;
+			}
+
+			bool operator!() const {
+				return !operator bool();
+			}
+
+			int count_stops = 0;      
+			int unique_stops = 0;           
+			double route_length = 0.0;  
+		};
+
+		BusInformation GetBusInfo(std::string_view bus) const;
+		std::vector<std::string_view> GetStopInfo(std::string_view stop) const;
 
 
 	private:
@@ -38,7 +53,7 @@ namespace catalog {
 		std::deque<Bus> buses_;
 		std::unordered_map<std::string_view, Stop*> search_stop_;
 		std::unordered_map<std::string_view, Bus*> search_bus_;
-		std::unordered_map<Stop*, std::vector<Bus*>> buses_of_stop;
+		std::unordered_map<Stop*, std::vector<std::string_view>> buses_of_stop;
 
 	};
 }
