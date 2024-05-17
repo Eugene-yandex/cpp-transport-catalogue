@@ -2,39 +2,50 @@
 
 #include <vector>
 #include <iomanip>
+#include <iostream>
 
-std::pair<std::string_view, std::string_view> ParseStatReader(std::string_view line) {
-    auto start_first_word = line.find_first_not_of(' ');
-    auto end_first_word = line.find_first_of(' ', start_first_word);
-    auto start_second_word = line.find_first_not_of(' ', end_first_word);
-    return { line.substr(start_first_word,end_first_word - start_first_word),line.substr(start_second_word) };
-}
+namespace out {
+    void GetInformation(std::istream& in, const catalog::TransportCatalogue& tansport_catalogue) {
+        int stat_request_count;
+        std::cin >> stat_request_count >> std::ws;
+        for (int i = 0; i < stat_request_count; ++i) {
+            std::string line;
+            std::getline(in, line);
+            PrintStat(tansport_catalogue, line, std::cout);
+        }
+    }
 
-void PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::string_view request,
-    std::ostream& output) {
-    using namespace std::literals;
-    // Реализуйте самостоятельно
-    std::pair<std::string_view, std::string_view> words_request = ParseStatReader(request);
+    CommandDescription ParseStatCommand(std::string_view line) {
+        auto start_first_word = line.find_first_not_of(' ');
+        auto end_first_word = line.find_first_of(' ', start_first_word);
+        auto start_second_word = line.find_first_not_of(' ', end_first_word);
+        return { line.substr(start_first_word,end_first_word - start_first_word),line.substr(start_second_word) };
+    }
 
-    if (words_request.first == "Bus"s) {
-        std::vector<double> result = tansport_catalogue.BusInfo(words_request.second);
-        output << "Bus "s << std::string(words_request.second) << ": "s;
-        if (result.empty()) {
+    void PrintBus(const catalog::TransportCatalogue& tansport_catalogue, std::string_view id,
+        std::ostream& output) {
+        using namespace std::literals;
+        auto result = tansport_catalogue.GetBusInfo(id);
+        output << "Bus "s << std::string(id) << ": "s;
+        if (result) {
             output << "not found"s << std::endl;
         }
         else {
-            output << static_cast<int>(result[0]) << " stops on route, "s << static_cast<int>(result[1]) <<
-                " unique stops, "s << std::setprecision(6) << result[2] << " route length"s << std::endl;
+            output << result.count_stops << " stops on route, "s << result.unique_stops <<
+                " unique stops, "s << result.route_length << " route length"s << std::endl;
         }
     }
-    else {
-        std::vector<std::string> result = tansport_catalogue.StopInfo(words_request.second);
-        output << "Stop "s << std::string(words_request.second) << ": "s;
+
+    void PrintStop(const catalog::TransportCatalogue& tansport_catalogue, std::string_view id,
+        std::ostream& output) {
+        using namespace std::literals;
+        std::vector<std::string_view> result = tansport_catalogue.GetStopInfo(id);
+        output << "Stop "s << std::string(id) << ": "s;
         if (result.empty()) {
             output << "not found"s << std::endl;
         }
-        else if (result.size() == 1 && result.back() == "no buses"s) {
-            output << "no buses"s << std::endl;
+        else if (result.size() == 1 && result.back() == "no buses"sv) {
+            output << result.back() << std::endl;
         }
         else {
             output << "buses"s;
@@ -42,6 +53,20 @@ void PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::strin
                 output << ' ' << std::string(bus);
             }
             output << std::endl;
+        }
+    }
+
+    void PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::string_view request,
+        std::ostream& output) {
+        using namespace std::literals;
+        // Реализуйте самостоятельно
+        CommandDescription words_request = ParseStatCommand(request);
+
+        if (words_request.command == "Bus"s) {
+            PrintBus(tansport_catalogue, words_request.id, output);            
+        }
+        else {
+            PrintStop(tansport_catalogue, words_request.id, output);
         }
     }
 }
