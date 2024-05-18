@@ -11,3 +11,5 @@ int main() {
     input::CreateDatabase(cin, catalogue);
     out::GetInformation(cin, cout, catalogue);
 }
+
+//Спасибо Вам большое!!!
