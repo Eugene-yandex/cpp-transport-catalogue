@@ -10,39 +10,40 @@
 #include "geo.h"
 
 namespace catalog {
+
+	struct Stop {
+		std::string name;
+		Coordinates stop_coordinates;
+	};
+
+	struct Bus {
+		std::string name;
+		std::vector<Stop*> stops;
+	};
+
+	struct BusInformation {
+		explicit operator bool() const {
+			return count_stops == 0;
+		}
+
+		bool operator!() const {
+			return !operator bool();
+		}
+
+		int count_stops = 0;
+		int unique_stops = 0;
+		double route_length = 0.0;
+	};
+
 	class TransportCatalogue {
 	public:
 		TransportCatalogue() = default;
 
-		struct Stop {
-			std::string name;
-			Coordinates stops_coordinat;
-		};
-
-		struct Bus {
-			std::string name;
-			std::vector<Stop*> marshrut;
-		};
-
 		void AddStop(const std::string& stop, const Coordinates& coordinates);
 		void AddBus(const std::string& bus, const std::vector<std::string_view>& stops);
 
-		Stop* FindStop(std::string_view stop) const;
-		Bus* FindBus(std::string_view bus) const;
-
-		struct BusInformation {
-			explicit operator bool() const {
-				return count_stops ==0;
-			}
-
-			bool operator!() const {
-				return !operator bool();
-			}
-
-			int count_stops = 0;      
-			int unique_stops = 0;           
-			double route_length = 0.0;  
-		};
+		const Stop* FindStop(std::string_view stop) const;
+		const Bus* FindBus(std::string_view bus) const;
 
 		BusInformation GetBusInfo(std::string_view bus) const;
 		std::vector<std::string_view> GetStopInfo(std::string_view stop) const;
