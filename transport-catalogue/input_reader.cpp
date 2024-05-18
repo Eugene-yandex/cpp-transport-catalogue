@@ -10,7 +10,7 @@ namespace input {
      void CreateDatabase(std::istream& in, catalog::TransportCatalogue& catalogue) {
 
         int base_request_count = 0;
-        std::cin >> base_request_count >> std::ws;
+        in >> base_request_count >> std::ws;
         Reader reader;
         for (int i = 0; i < base_request_count; ++i) {
             std::string line;
