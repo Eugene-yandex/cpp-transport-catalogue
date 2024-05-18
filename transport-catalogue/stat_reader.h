@@ -20,5 +20,5 @@ namespace out {
     void PrintStop(const catalog::TransportCatalogue& tansport_catalogue, std::string_view id,
         std::ostream& output);
 
-    void GetInformation(std::istream& in, const catalog::TransportCatalogue& tansport_catalogue);
+    void GetInformation(std::istream& in, std::ostream& out, const catalog::TransportCatalogue& tansport_catalogue);
 }
