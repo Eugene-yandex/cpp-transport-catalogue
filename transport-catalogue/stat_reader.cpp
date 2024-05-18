@@ -5,13 +5,13 @@
 #include <iostream>
 
 namespace out {
-    void GetInformation(std::istream& in, const catalog::TransportCatalogue& tansport_catalogue) {
+    void GetInformation(std::istream& in, std::ostream& out, const catalog::TransportCatalogue& tansport_catalogue) {
         int stat_request_count;
-        std::cin >> stat_request_count >> std::ws;
+        in >> stat_request_count >> std::ws;
         for (int i = 0; i < stat_request_count; ++i) {
             std::string line;
             std::getline(in, line);
-            PrintStat(tansport_catalogue, line, std::cout);
+            PrintStat(tansport_catalogue, line, out);
         }
     }
 
