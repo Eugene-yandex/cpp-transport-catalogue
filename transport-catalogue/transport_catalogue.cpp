@@ -21,39 +21,39 @@ namespace catalog {
 				buses_of_stop.at(stop_ptr).push_back(buses_.back().name);
 			}
 		}
-		buses_.back().marshrut = std::move(result);
+		buses_.back().stops = std::move(result);
 		search_bus_.insert({ buses_.back().name, &buses_.back() });
 
 	}
 
-	TransportCatalogue::Stop* TransportCatalogue::FindStop(std::string_view stop) const {
+	const Stop* TransportCatalogue::FindStop(std::string_view stop) const {
 		return search_stop_.count(stop) > 0 ? search_stop_.at(stop) : nullptr;
 	}
 
-	TransportCatalogue::Bus* TransportCatalogue::FindBus(std::string_view bus) const {
+	const Bus* TransportCatalogue::FindBus(std::string_view bus) const {
 		return search_bus_.count(bus) > 0 ? search_bus_.at(bus) : nullptr;
 	}
 
-	TransportCatalogue::BusInformation TransportCatalogue::GetBusInfo(std::string_view bus) const {
+	BusInformation TransportCatalogue::GetBusInfo(std::string_view bus) const {
 
 		BusInformation result;
 		auto bus_ptr = FindBus(bus);
 		if (!bus_ptr) {
 			return result;
 		}
-		result.count_stops = bus_ptr->marshrut.size();
+		result.count_stops = bus_ptr->stops.size();
 
 		for (size_t stop_index = 0; stop_index < result.count_stops; ++stop_index) {
-			auto stop = bus_ptr->marshrut[stop_index];
-			auto poisk = std::find(bus_ptr->marshrut.begin(), bus_ptr->marshrut.begin() + stop_index, stop);
-			if (poisk == bus_ptr->marshrut.begin() + stop_index) {
+			auto stop = bus_ptr->stops[stop_index];
+			auto poisk = std::find(bus_ptr->stops.begin(), bus_ptr->stops.begin() + stop_index, stop);
+			if (poisk == bus_ptr->stops.begin() + stop_index) {
 				++result.unique_stops;
 			}
 			if (stop_index == result.count_stops - 1) {
 				continue;
 			}
-			auto next_stop = bus_ptr->marshrut[stop_index + 1];
-			result.route_length += ComputeDistance(stop->stops_coordinat, next_stop->stops_coordinat);
+			auto next_stop = bus_ptr->stops[stop_index + 1];
+			result.route_length += ComputeDistance(stop->stop_coordinates, next_stop->stop_coordinates);
 		}
 
 		return result;
