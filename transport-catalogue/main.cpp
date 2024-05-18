@@ -9,5 +9,5 @@ using namespace std;
 int main() {
     catalog::TransportCatalogue catalogue;
     input::CreateDatabase(cin, catalogue);
-    out::GetInformation(cin, catalogue);
+    out::GetInformation(cin, cout, catalogue);
 }
