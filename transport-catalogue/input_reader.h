@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <iostream>
 
 
@@ -23,6 +24,17 @@ namespace input {
         std::string description;  // Параметры команды
     };
 
+    struct DescriptionCommandStop {
+        std::string_view stop;
+        Coordinates coordinates;
+        std::unordered_map<std::string,int> distance;  // Параметры команды
+    };
+
+    std::unordered_map<std::string, int> ParseDistance(std::string line);
+
+
+    DescriptionCommandStop ParseCommandStop(std::string_view line);
+
     class Reader {
     public:
 
@@ -30,6 +42,7 @@ namespace input {
          * Парсит строку в структуру CommandDescription и сохраняет результат в commands_
          */
         void ParseLine(std::string_view line);
+
 
         /**
          * Наполняет данными транспортный справочник, используя команды из commands_
