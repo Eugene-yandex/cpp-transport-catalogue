@@ -32,7 +32,8 @@ namespace out {
         }
         else {
             output << result.count_stops << " stops on route, "s << result.unique_stops <<
-                " unique stops, "s << result.route_length << " route length"s << std::endl;
+                " unique stops, "s << std::setprecision(6) << result.route_length_real << " route length, "s << std::defaultfloat <<
+                result.route_length_real / result.route_length_geographical_coordinates << " curvature"s << std::endl;
         }
     }
 
@@ -63,7 +64,7 @@ namespace out {
         CommandDescription words_request = ParseStatCommand(request);
 
         if (words_request.command == "Bus"s) {
-            PrintBus(tansport_catalogue, words_request.id, output);            
+            PrintBus(tansport_catalogue, words_request.id, output);
         }
         else {
             PrintStop(tansport_catalogue, words_request.id, output);
