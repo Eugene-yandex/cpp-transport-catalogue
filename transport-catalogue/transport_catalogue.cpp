@@ -5,11 +5,30 @@
 
 namespace catalog {
 
+	size_t PairStopsHasher::operator() (const std::pair<Stop*, Stop*>& pair_stops) const {
+		std::hash<const void*> stop_hasher;
+		auto h1 = stop_hasher(pair_stops.first);
+		auto h2 = stop_hasher(pair_stops.second);
+		return h1 * 43 + h2;
+	}
+
 	void TransportCatalogue::AddStop(const std::string& stop, const Coordinates& coordinates) {
 		stops_.push_back({ stop,coordinates });
 		search_stop_.insert({ stops_.back().name, &stops_.back() });
 		buses_of_stop.insert({ &stops_.back(), {} });
 	}
+
+	void TransportCatalogue::AddDistance(const std::string_view stop, const std::unordered_map<std::string, int>& all_distance) {
+		if (all_distance.empty()) {
+			return;
+		}
+		for (const auto& [any_stop, distatnce] : all_distance) {
+			if (search_stop_.count(stop) > 0 && search_stop_.count(any_stop) > 0) {
+				distance_stops.insert({ {search_stop_.at(stop), search_stop_.at(any_stop)},distatnce });
+			}
+		}
+	}
+
 
 	void TransportCatalogue::AddBus(const std::string& bus, const std::vector<std::string_view>& stops) {
 		std::vector<Stop*> result;
@@ -33,6 +52,14 @@ namespace catalog {
 	const Bus* TransportCatalogue::FindBus(std::string_view bus) const {
 		return search_bus_.count(bus) > 0 ? search_bus_.at(bus) : nullptr;
 	}
+	int TransportCatalogue::ComputeDistanceRealDistance(Stop* from, Stop* to) const {
+		if (distance_stops.count({ from , to }) > 0) {
+			return distance_stops.at({ from , to });
+		}
+		else {
+			return distance_stops.at({ to , from });
+		}
+	}
 
 	BusInformation TransportCatalogue::GetBusInfo(std::string_view bus) const {
 
@@ -53,13 +80,14 @@ namespace catalog {
 				continue;
 			}
 			auto next_stop = bus_ptr->stops[stop_index + 1];
-			result.route_length += ComputeDistance(stop->stop_coordinates, next_stop->stop_coordinates);
+			result.route_length_real += ComputeDistanceRealDistance(stop, next_stop);
+			result.route_length_geographical_coordinates += ComputeDistanceGeographicalCoordinates(stop->stop_coordinates, next_stop->stop_coordinates);
 		}
 
 		return result;
 	}
 
-	std::vector<std::string_view> TransportCatalogue::GetStopInfo(std::string_view stop) const {
+	const std::vector<std::string_view> TransportCatalogue::GetStopInfo(std::string_view stop) const {
 		std::vector<std::string_view> result;
 		using namespace std::literals;
 		if (search_stop_.count(stop) == 0) {
