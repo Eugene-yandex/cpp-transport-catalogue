@@ -4,9 +4,11 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <unordered_map>
 #include <string>
 
 namespace input {
+
      void CreateDatabase(std::istream& in, catalog::TransportCatalogue& catalogue) {
 
         int base_request_count = 0;
@@ -40,6 +42,47 @@ namespace input {
 
         return { lat, lng };
     }
+
+    std::unordered_map<std::string, int> ParseDistance(std::string line) {
+        std::unordered_map<std::string, int> result;
+
+        auto not_space = line.find_first_not_of(' ');
+        auto comma = line.find(',', not_space + 1);
+        auto space = line.find_first_of(' ', not_space);
+        for (int i = 0; not_space != line.npos; ++i) {
+            if (i > 0) {
+                not_space = line.find_first_not_of(' ', comma + 1);
+                comma = line.find(',', not_space + 1);
+                space = line.find_first_of(' ', not_space);
+            }
+            int distance = std::stoi(line.substr(not_space, space - 1));
+
+            not_space = line.find_first_not_of(' ', space);
+            space = line.find_first_of(' ', not_space);
+            not_space = line.find_first_not_of(' ', space);
+            result.insert({ line.substr(not_space, comma - not_space),distance });
+            not_space = comma;
+        }
+        return result;
+    }
+
+    DescriptionCommandStop ParseCommandStop(std::string line) {
+        DescriptionCommandStop result;
+        auto comma = line.find(',');
+        if (comma == line.npos) {
+            return result;
+        }
+
+        auto comma2 = line.find(',', comma + 1);
+        result.coordinates = ParseCoordinates(line.substr(0, comma2));
+        if (comma2 == line.npos) {
+            return result;
+        }
+        result.distance = ParseDistance(std::move(line.substr(comma2 + 1)));
+
+        return result;
+    }
+
 
     /**
      * Удаляет пробелы в начале и конце строки
@@ -121,14 +164,22 @@ namespace input {
     void Reader::ApplyCommands([[maybe_unused]] catalog::TransportCatalogue& catalogue) const {
         // Реализуйте метод самостоятельно
         using namespace std::literals;
+        std::vector<DescriptionCommandStop> description_stops;
         for (auto& com : commands_) {
             if (com.command == "Bus"s) {
                 continue;
             }
-            catalogue.AddStop(com.id, ParseCoordinates(com.description));
+            DescriptionCommandStop description_stop = ParseCommandStop(std::move(com.description));
+            catalogue.AddStop(com.id, description_stop.coordinates);
+            description_stop.stop = com.id;
+            description_stops.push_back(std::move(description_stop));
         }
 
-        for (auto& com : commands_) {
+        for (const auto& description_stop : description_stops) {
+            catalogue.AddDistance(description_stop.stop, description_stop.distance);
+        }
+
+        for (const auto& com : commands_) {
             if (com.command == "Stop"s) {
                 continue;
             }
