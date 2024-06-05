@@ -27,7 +27,7 @@ namespace input {
     struct DescriptionCommandStop {
         std::string_view stop;
         Coordinates coordinates;
-        std::unordered_map<std::string,int> distance;  // Параметры команды
+        std::unordered_map<std::string,int> distance;  
     };
 
     std::unordered_map<std::string, int> ParseDistance(std::string line);
