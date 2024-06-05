@@ -45,7 +45,7 @@ namespace catalog {
 		TransportCatalogue() = default;
 
 		void AddStop(const std::string& stop, const Coordinates& coordinates);
-		void AddDistance(const std::string_view stop, const std::unordered_map<std::string, int>& all_distance);
+		void AddDistance(const std::string_view stop1, const std::string_view stop2, int distance);
 		void AddBus(const std::string& bus, const std::vector<std::string_view>& stops);
 
 		const Stop* FindStop(std::string_view stop) const;
@@ -60,8 +60,8 @@ namespace catalog {
 		std::deque<Bus> buses_;
 		std::unordered_map<std::string_view, Stop*> search_stop_;
 		std::unordered_map<std::string_view, Bus*> search_bus_;
-		std::unordered_map<Stop*, std::vector<std::string_view>> buses_of_stop;
-		std::unordered_map<std::pair<Stop*, Stop*>, int, PairStopsHasher> distance_stops;
+		std::unordered_map<Stop*, std::vector<std::string_view>> buses_of_stop_;
+		std::unordered_map<std::pair<Stop*, Stop*>, int, PairStopsHasher> distance_stops_;
 
 		int ComputeDistanceRealDistance(Stop* from, Stop* to) const;
 	};
