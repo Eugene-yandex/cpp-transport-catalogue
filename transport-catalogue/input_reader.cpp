@@ -176,7 +176,9 @@ namespace input {
         }
 
         for (const auto& description_stop : description_stops) {
-            catalogue.AddDistance(description_stop.stop, description_stop.distance);
+            for (const auto& [any_stop, distatnce] : description_stop.distance) {
+                catalogue.AddDistance(description_stop.stop, any_stop, distatnce);
+            }
         }
 
         for (const auto& com : commands_) {
