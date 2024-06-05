@@ -15,17 +15,12 @@ namespace catalog {
 	void TransportCatalogue::AddStop(const std::string& stop, const Coordinates& coordinates) {
 		stops_.push_back({ stop,coordinates });
 		search_stop_.insert({ stops_.back().name, &stops_.back() });
-		buses_of_stop.insert({ &stops_.back(), {} });
+		buses_of_stop_.insert({ &stops_.back(), {} });
 	}
 
-	void TransportCatalogue::AddDistance(const std::string_view stop, const std::unordered_map<std::string, int>& all_distance) {
-		if (all_distance.empty()) {
-			return;
-		}
-		for (const auto& [any_stop, distatnce] : all_distance) {
-			if (search_stop_.count(stop) > 0 && search_stop_.count(any_stop) > 0) {
-				distance_stops.insert({ {search_stop_.at(stop), search_stop_.at(any_stop)},distatnce });
-			}
+	void TransportCatalogue::AddDistance(const std::string_view stop1, const std::string_view stop2, int distance) {
+		if (search_stop_.count(stop1) > 0 && search_stop_.count(stop2) > 0) {
+			distance_stops_.insert({ {search_stop_.at(stop1), search_stop_.at(stop2)},distance });
 		}
 	}
 
@@ -36,8 +31,8 @@ namespace catalog {
 		for (auto stop : stops) {
 			auto stop_ptr = search_stop_.at(stop);
 			result.push_back(stop_ptr);
-			if (std::find(buses_of_stop.at(stop_ptr).begin(), buses_of_stop.at(stop_ptr).end(), bus) == buses_of_stop.at(stop_ptr).end()) {
-				buses_of_stop.at(stop_ptr).push_back(buses_.back().name);
+			if (std::find(buses_of_stop_.at(stop_ptr).begin(), buses_of_stop_.at(stop_ptr).end(), bus) == buses_of_stop_.at(stop_ptr).end()) {
+				buses_of_stop_.at(stop_ptr).push_back(buses_.back().name);
 			}
 		}
 		buses_.back().stops = std::move(result);
@@ -53,11 +48,11 @@ namespace catalog {
 		return search_bus_.count(bus) > 0 ? search_bus_.at(bus) : nullptr;
 	}
 	int TransportCatalogue::ComputeDistanceRealDistance(Stop* from, Stop* to) const {
-		if (distance_stops.count({ from , to }) > 0) {
-			return distance_stops.at({ from , to });
+		if (distance_stops_.count({ from , to }) > 0) {
+			return distance_stops_.at({ from , to });
 		}
 		else {
-			return distance_stops.at({ to , from });
+			return distance_stops_.at({ to , from });
 		}
 	}
 
@@ -93,12 +88,12 @@ namespace catalog {
 		if (search_stop_.count(stop) == 0) {
 			return result;
 		}
-		else if (buses_of_stop.at(search_stop_.at(stop)).empty()) {
+		else if (buses_of_stop_.at(search_stop_.at(stop)).empty()) {
 			result.push_back("no buses"sv);
 			return result;
 		}
 		else {
-			result = buses_of_stop.at(search_stop_.at(stop));
+			result = buses_of_stop_.at(search_stop_.at(stop));
 			std::sort(result.begin(), result.end());
 			return result;
 		}
