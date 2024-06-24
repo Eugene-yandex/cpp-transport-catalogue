@@ -33,10 +33,9 @@ namespace jreader{
         DescriptionCommandStop AddDescriptionCommandStop(const json::Dict& map_info);
         std::pair<std::vector<std::string_view>, std::optional<std::string_view>> AddRoute(const json::Array& stops, bool ring);
         json::Dict PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
-                json::Dict PrintStop(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
+        json::Dict PrintStop(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
         svg::Color GetColorRenderSettings(const json::Node& node) const;
         renderer::MapRenderer MakeMapRenderer() const;
-        svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
         void RenderLine(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses,
             const renderer::SphereProjector& proj, svg::Document& doc) const;
         void RenderBusLabels(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses,
@@ -45,6 +44,7 @@ namespace jreader{
             const renderer::SphereProjector& proj, svg::Document& doc) const;
         void RenderStopLabels(const renderer::MapRenderer& maprender, const std::vector<domain::Stop*>& stop,
             const renderer::SphereProjector& proj, svg::Document& doc) const; 
+        svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
         json::Dict PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const;
 
     };

@@ -43,12 +43,26 @@ namespace jreader {
                 description_stops.push_back(std::move(description_stop));
             }
         }
-
         for (const auto& description_stop : description_stops) {
             for (const auto& [any_stop, distatnce] : description_stop.distance) {
                 catalogue.AddDistance(description_stop.stop, any_stop, distatnce);
             }
         }
+    }
+
+    DescriptionCommandStop JsonInformation::AddDescriptionCommandStop(const json::Dict& map_info) {
+        DescriptionCommandStop result;
+        result.stop = map_info.at("name").AsString();
+        result.coordinates = { map_info.at("latitude").AsDouble(),map_info.at("longitude").AsDouble() };
+        std::unordered_map<std::string, int> distance;
+        if (map_info.count("road_distances") > 0) {
+            auto road_distances = map_info.at("road_distances").AsMap();
+            for (const auto& [stop, length] : road_distances) {
+                distance.insert({ stop ,length.AsInt() });
+            }
+            result.distance = std::move(distance);
+        }
+        return result;
     }
 
     void JsonInformation::ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
@@ -62,26 +76,6 @@ namespace jreader {
         }
     }
 
-    DescriptionCommandStop JsonInformation::AddDescriptionCommandStop(const json::Dict& map_info) {
-        DescriptionCommandStop result;
-        result.stop = map_info.at("name").AsString();
-        result.coordinates = { map_info.at("latitude").AsDouble(),map_info.at("longitude").AsDouble()};
-        std::unordered_map<std::string, int> distance;
-        if (map_info.count("road_distances") > 0) {
-            auto road_distances = map_info.at("road_distances").AsMap();
-            for (const auto& [stop, length] : road_distances) {
-                distance.insert({ stop ,length.AsInt() });
-            }
-            result.distance = std::move(distance);
-        }
-        return result;
-    }
-
-    /**
-     * Парсит маршрут.
-     * Для кольцевого маршрута (A>B>C>A) возвращает массив названий остановок [A,B,C,A]
-     * Для некольцевого маршрута (A-B-C-D) возвращает массив названий остановок [A,B,C,D,C,B,A]
-     */
     std::pair<std::vector<std::string_view>, std::optional<std::string_view>> JsonInformation::AddRoute(const json::Array& stops, bool ring) {
         std::vector<std::string_view> results;
         if (stops.empty()) {
@@ -103,20 +97,19 @@ namespace jreader {
        
     }
 
-    json::Dict JsonInformation::PrintBus(const catalog::TransportCatalogue& tansport_catalogue,
-        int id, std::string_view name) {
+    json::Dict JsonInformation::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
         RequestHandler request_handler(tansport_catalogue);
         json::Dict result;
         result.insert({ "request_id"s, id });
-        auto businfo = request_handler.GetBusInfo(name);
-        if (!businfo) {
+        auto bus_info = request_handler.GetBusInfo(name);
+        if (!bus_info) {
             result.insert({ "error_message"s, json::Node{"not found"s} });
         }
         else {
-            result.insert({ "curvature"s, businfo.value().route_length_real / businfo.value().route_length_geographical_coordinates });
-            result.insert({ "route_length"s, businfo.value().route_length_real });
-            result.insert({ "stop_count"s, businfo.value().count_stops });
-            result.insert({ "unique_stop_count"s, businfo.value().unique_stops });
+            result.insert({ "curvature"s, bus_info.value().route_length_real / bus_info.value().route_length_geographical_coordinates });
+            result.insert({ "route_length"s, bus_info.value().route_length_real });
+            result.insert({ "stop_count"s, bus_info.value().count_stops });
+            result.insert({ "unique_stop_count"s, bus_info.value().unique_stops });
         }
         return result;
     }
@@ -143,6 +136,36 @@ namespace jreader {
 
         }
         return result;
+    }
+
+    renderer::MapRenderer JsonInformation::MakeMapRenderer() const {
+        renderer::MapParameters result;
+        result.width = render_settings_.at("width"s).AsDouble();
+        result.height = render_settings_.at("height"s).AsDouble();
+        result.padding = render_settings_.at("padding"s).AsDouble();
+        result.line_width = render_settings_.at("line_width"s).AsDouble();
+        result.stop_radius = render_settings_.at("stop_radius"s).AsDouble();
+        result.bus_label_font_size = render_settings_.at("bus_label_font_size"s).AsInt();
+        result.stop_label_font_size = render_settings_.at("stop_label_font_size"s).AsInt();
+        std::vector<double> bus_label_offset;
+        for (const auto& x : render_settings_.at("bus_label_offset"s).AsArray()) {
+            bus_label_offset.push_back(x.AsDouble());
+        }
+        result.bus_label_offset = bus_label_offset;
+        std::vector<double> stop_label_offset;
+        for (const auto& x : render_settings_.at("stop_label_offset"s).AsArray()) {
+            stop_label_offset.push_back(x.AsDouble());
+        }
+        result.stop_label_offset = stop_label_offset;
+        result.underlayer_color = GetColorRenderSettings(render_settings_.at("underlayer_color"s));
+
+        result.underlayer_width = render_settings_.at("underlayer_width"s).AsDouble();
+        std::vector<svg::Color> color_palette;
+        for (const auto& x : render_settings_.at("color_palette"s).AsArray()) {
+            color_palette.push_back(GetColorRenderSettings(x));
+        }
+        result.color_palette = color_palette;
+        return renderer::MapRenderer(std::move(result));
     }
 
     svg::Color JsonInformation::GetColorRenderSettings(const json::Node& node) const {
@@ -198,36 +221,6 @@ namespace jreader {
         return result;
     }
 
-    renderer::MapRenderer JsonInformation::MakeMapRenderer() const {
-        renderer::MapParameters result;
-        result.width = render_settings_.at("width"s).AsDouble();
-        result.height = render_settings_.at("height"s).AsDouble();
-        result.padding = render_settings_.at("padding"s).AsDouble();
-        result.line_width = render_settings_.at("line_width"s).AsDouble();
-        result.stop_radius = render_settings_.at("stop_radius"s).AsDouble();
-        result.bus_label_font_size = render_settings_.at("bus_label_font_size"s).AsInt();
-        result.stop_label_font_size = render_settings_.at("stop_label_font_size"s).AsInt();
-        std::vector<double> bus_label_offset;
-        for (const auto& x : render_settings_.at("bus_label_offset"s).AsArray()) {
-            bus_label_offset.push_back(x.AsDouble());
-        }
-        result.bus_label_offset = bus_label_offset;
-        std::vector<double> stop_label_offset;
-        for (const auto& x : render_settings_.at("stop_label_offset"s).AsArray()) {
-            stop_label_offset.push_back(x.AsDouble());
-        }
-        result.stop_label_offset = stop_label_offset;
-        result.underlayer_color = GetColorRenderSettings(render_settings_.at("underlayer_color"s));
-
-        result.underlayer_width = render_settings_.at("underlayer_width"s).AsDouble();
-        std::vector<svg::Color> color_palette;
-        for (const auto& x : render_settings_.at("color_palette"s).AsArray()) {
-            color_palette.push_back(GetColorRenderSettings(x));
-        }
-        result.color_palette = color_palette;
-        return renderer::MapRenderer(std::move(result));
-    }
-
     svg::Document JsonInformation::RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const {
          renderer::MapRenderer maprender = MakeMapRenderer();
          std::deque<domain::Bus*> buses = tansport_catalogue.GetNoEmptyBus();
@@ -261,7 +254,6 @@ namespace jreader {
 
     void JsonInformation::RenderLine(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses, 
         const renderer::SphereProjector& proj, svg::Document& doc) const {
-       
         int i = 0;
         int max_color_palette = maprender.GetColorPalette().size();
         for (const auto& bus : buses) {
