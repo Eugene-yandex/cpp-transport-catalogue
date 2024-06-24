@@ -7,37 +7,15 @@
 #include <unordered_set>
 #include <cassert>
 #include <vector>
-#include "geo.h"
+#include "domain.h"
+
 
 namespace catalog {
 
-	struct Stop {
-		std::string name;
-		Coordinates stop_coordinates;
-	};
-
-	struct Bus {
-		std::string name;
-		std::vector<Stop*> stops;
-	};
-
-	struct BusInformation {
-		explicit operator bool() const {
-			return count_stops == 0;
-		}
-
-		bool operator!() const {
-			return !operator bool();
-		}
-
-		int count_stops = 0;
-		int unique_stops = 0;
-		int route_length_real = 0;
-		double route_length_geographical_coordinates = 0.0;
-	};
+	
 
 	struct PairStopsHasher {
-		size_t operator() (const std::pair<Stop*, Stop*>& pair_stops) const;
+		size_t operator() (const std::pair<domain::Stop*, domain::Stop*>& pair_stops) const;
 	};
 
 	class TransportCatalogue {
@@ -46,23 +24,24 @@ namespace catalog {
 
 		void AddStop(const std::string& stop, const Coordinates& coordinates);
 		void AddDistance(const std::string_view stop1, const std::string_view stop2, int distance);
-		void AddBus(const std::string& bus, const std::vector<std::string_view>& stops);
+		void AddBus(const std::string& bus, const  std::pair<std::vector<std::string_view>, std::optional<std::string_view>>& stops);
 
-		const Stop* FindStop(std::string_view stop) const;
-		const Bus* FindBus(std::string_view bus) const;
+		const domain::Stop* FindStop(std::string_view stop) const;
+		const domain::Bus* FindBus(std::string_view bus) const;
 
-		BusInformation GetBusInfo(std::string_view bus) const;
 		const std::vector<std::string_view> GetStopInfo(std::string_view stop) const;
+		int ComputeDistanceRealDistance(domain::Stop* from, domain::Stop* to) const;
+		const std::deque<domain::Bus*> GetNoEmptyBus() const;
 
 
 	private:
-		std::deque<Stop> stops_;
-		std::deque<Bus> buses_;
-		std::unordered_map<std::string_view, Stop*> search_stop_;
-		std::unordered_map<std::string_view, Bus*> search_bus_;
-		std::unordered_map<Stop*, std::vector<std::string_view>> buses_of_stop_;
-		std::unordered_map<std::pair<Stop*, Stop*>, int, PairStopsHasher> distance_stops_;
+		std::deque<domain::Stop> stops_;
+		std::deque<domain::Bus> buses_;
+		std::unordered_map<std::string_view, domain::Stop*> search_stop_;
+		std::unordered_map<std::string_view, domain::Bus*> search_bus_;
+		std::unordered_map<domain::Stop*, std::vector<std::string_view>> buses_of_stop_;
+		std::unordered_map<std::pair<domain::Stop*, domain::Stop*>, int, PairStopsHasher> distance_stops_;
+		std::deque<domain::Bus*> noempty_bus;
 
-		int ComputeDistanceRealDistance(Stop* from, Stop* to) const;
 	};
 }
