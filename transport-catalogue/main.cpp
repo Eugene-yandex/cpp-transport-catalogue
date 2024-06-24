@@ -1,15 +1,14 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 
-#include "input_reader.h"
-#include "stat_reader.h"
+#include "json_reader.h"
 
 using namespace std;
 
 int main() {
     catalog::TransportCatalogue catalogue;
-    input::CreateDatabase(cin, catalogue);
-    out::GetInformation(cin, cout, catalogue);
+    jreader::JsonInformation ji(cin);
+    ji.CreateDatabase(catalogue);
+    ji.PrintStat(catalogue, cout);
 }
-
-//Спасибо Вам большое!!!
