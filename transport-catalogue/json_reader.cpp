@@ -12,7 +12,7 @@
 namespace jreader {
     using namespace std::literals;
 
-    JsonInformation::JsonInformation(std::istream& input) {
+    JSONReader::JSONReader(std::istream& input) {
         json::Document tmp = json::Load(input);
         if (tmp.GetRoot().AsMap().count("base_requests"s) > 0) {
             base_requests_ = tmp.GetRoot().AsMap().at("base_requests"s).AsArray();
@@ -25,7 +25,7 @@ namespace jreader {
         }
     }
 
-    void JsonInformation::CreateDatabase(catalog::TransportCatalogue& catalogue) {
+    void JSONReader::CreateDatabase(catalog::TransportCatalogue& catalogue) {
         if (!base_requests_.empty()) {
             ApplyCommandsStop(catalogue);
             ApplyCommandsBus(catalogue);
@@ -33,8 +33,8 @@ namespace jreader {
         
     }
 
-    void JsonInformation::ApplyCommandsStop([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // –Â‡ÎËÁÛÈÚÂ ÏÂÚÓ‰ Ò‡ÏÓÒÚÓˇÚÂÎ¸ÌÓ
+    void JSONReader::ApplyCommandsStop([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
+        // –†–µ–∞–ª–∏–∑—É–π—Ç–µ –º–µ—Ç–æ–¥ —Å–∞–º–æ—Å—Ç–æ—è—Ç–µ–ª—å–Ω–æ
         std::vector<DescriptionCommandStop> description_stops;
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Stop"s) {
@@ -50,7 +50,7 @@ namespace jreader {
         }
     }
 
-    DescriptionCommandStop JsonInformation::AddDescriptionCommandStop(const json::Dict& map_info) {
+    DescriptionCommandStop JSONReader::AddDescriptionCommandStop(const json::Dict& map_info) {
         DescriptionCommandStop result;
         result.stop = map_info.at("name").AsString();
         result.coordinates = { map_info.at("latitude").AsDouble(),map_info.at("longitude").AsDouble() };
@@ -65,43 +65,35 @@ namespace jreader {
         return result;
     }
 
-    void JsonInformation::ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // –Â‡ÎËÁÛÈÚÂ ÏÂÚÓ‰ Ò‡ÏÓÒÚÓˇÚÂÎ¸ÌÓ
+    //–ø–æ–Ω—Ä–∞–≤–∏–ª–∞—Å—å –∏–¥–µ—è –ø–µ—Ä–µ–Ω–µ—Å—Ç–∏ —Ä–µ–∞–ª–∏–∑–∞—Ü–∏—é —Ñ—É–Ω–∫—Ü–∏–∏ AddRoute –≤ ApplyCommandsBus
+    void JSONReader::ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
+        // –†–µ–∞–ª–∏–∑—É–π—Ç–µ –º–µ—Ç–æ–¥ —Å–∞–º–æ—Å—Ç–æ—è—Ç–µ–ª—å–Ω–æ
 
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Bus"s) {
-                std::pair<std::vector<std::string_view>, std::optional<std::string_view>> stops = AddRoute(data.AsMap().at("stops"s).AsArray(), data.AsMap().at("is_roundtrip"s).AsBool());
-                catalogue.AddBus(data.AsMap().at("name").AsString(), stops);
+                std::vector<std::string_view> result;
+                std::optional<std::string_view> last_stop;
+                const auto& stops = data.AsMap().at("stops"s).AsArray();
+                if (!stops.empty()) {
+                    for (const auto& stop : stops) {
+                        result.push_back(stop.AsString());
+                    }
+                    if (!data.AsMap().at("is_roundtrip"s).AsBool()) {
+                        if (*result.rbegin() != *result.begin()) {
+                            last_stop = *result.rbegin();
+                        }
+                        result.insert(result.end(), std::next(result.rbegin()), result.rend());
+                    }
+                }
+                catalogue.AddBus(data.AsMap().at("name").AsString(), result, last_stop);
             }
-        }
+        }   
     }
 
-    std::pair<std::vector<std::string_view>, std::optional<std::string_view>> JsonInformation::AddRoute(const json::Array& stops, bool ring) {
-        std::vector<std::string_view> results;
-        if (stops.empty()) {
-            return std::make_pair(results, std::nullopt);
-        }
-        for (const auto& stop : stops) {
-            results.push_back(stop.AsString());
-        }
-        if (!ring) {
-            std::string_view last_stop;
-            last_stop = stops.rbegin()->AsString();
-            results.insert(results.end(), std::next(results.rbegin()), results.rend());
-            if (last_stop == *results.begin()) {
-                return std::make_pair(results, std::nullopt);
-            }
-            return std::make_pair(results, last_stop);
-        }
-        return std::make_pair(results, std::nullopt);
-       
-    }
-
-    json::Dict JsonInformation::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
-        RequestHandler request_handler(tansport_catalogue);
+    json::Dict JSONReader::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
         json::Dict result;
         result.insert({ "request_id"s, id });
-        auto bus_info = request_handler.GetBusInfo(name);
+        auto bus_info = tansport_catalogue.GetBusInfo(name);
         if (!bus_info) {
             result.insert({ "error_message"s, json::Node{"not found"s} });
         }
@@ -114,12 +106,11 @@ namespace jreader {
         return result;
     }
 
-    json::Dict JsonInformation::PrintStop(const catalog::TransportCatalogue& tansport_catalogue,
+    json::Dict JSONReader::PrintStop(const catalog::TransportCatalogue& tansport_catalogue,
         int id, std::string_view name) {
-        RequestHandler request_handler(tansport_catalogue);
         json::Dict result;
         result.insert({ "request_id"s, id });
-        auto stops = request_handler.GetStopInfo(name);
+        auto stops = tansport_catalogue.GetStopInfo(name);
         json::Array result_stop;
         if (stops.size() == 0) {
             result.insert({ "error_message"s, json::Node{"not found"s} });
@@ -138,7 +129,7 @@ namespace jreader {
         return result;
     }
 
-    renderer::MapRenderer JsonInformation::MakeMapRenderer() const {
+    renderer::MapRenderer JSONReader::MakeMapRenderer() const {
         renderer::MapParameters result;
         result.width = render_settings_.at("width"s).AsDouble();
         result.height = render_settings_.at("height"s).AsDouble();
@@ -168,7 +159,7 @@ namespace jreader {
         return renderer::MapRenderer(std::move(result));
     }
 
-    svg::Color JsonInformation::GetColorRenderSettings(const json::Node& node) const {
+    svg::Color JSONReader::GetColorRenderSettings(const json::Node& node) const {
         svg::Color color;
         if (node.IsString()) {
             color = node.AsString();
@@ -188,7 +179,7 @@ namespace jreader {
         return color;
     }
 
-    void JsonInformation::PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::ostream& output) {
+    void JSONReader::PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::ostream& output) {
 
         using namespace std::literals;
         if (!stat_requests_.empty()) {
@@ -211,7 +202,7 @@ namespace jreader {
         }
     }
 
-    json::Dict JsonInformation::PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const{
+    json::Dict JSONReader::PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const{
         json::Dict result;
         result.insert({ "request_id"s, id }); 
         std::ostringstream out;
@@ -221,7 +212,7 @@ namespace jreader {
         return result;
     }
 
-    svg::Document JsonInformation::RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const {
+    svg::Document JSONReader::RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const {
          renderer::MapRenderer maprender = MakeMapRenderer();
          std::deque<domain::Bus*> buses = tansport_catalogue.GetNoEmptyBus();
         std::sort(buses.begin(), buses.end(),[](domain::Bus* lhs, domain::Bus* rhs) {
@@ -242,87 +233,13 @@ namespace jreader {
         stops.begin(), stops.end(), maprender.GetWidth(), maprender.GetHeight(), maprender.GetPadding()
         };
         svg::Document doc;
-        RenderLine(maprender, buses, proj, doc);
-        RenderBusLabels(maprender, buses, proj, doc);
+        maprender.RenderLine(buses, proj, doc);
+        maprender.RenderBusLabels(buses, proj, doc);
         std::sort(stops.begin(), stops.end(), [](domain::Stop* lhs, domain::Stop* rhs) {
             return lhs->name < rhs->name;
             });
-        RenderStopPoints(maprender, stops, proj, doc);
-        RenderStopLabels(maprender, stops, proj, doc);
+        maprender.RenderStopPoints(stops, proj, doc);
+        maprender.RenderStopLabels(stops, proj, doc);
         return doc;
-    }
-
-    void JsonInformation::RenderLine(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses, 
-        const renderer::SphereProjector& proj, svg::Document& doc) const {
-        int i = 0;
-        int max_color_palette = maprender.GetColorPalette().size();
-        for (const auto& bus : buses) {
-            svg::Polyline result;
-            if (i >= max_color_palette) {
-                i = 0;
-            }
-            for (const auto& stop : bus->stops) {
-                result.AddPoint(proj(stop->stop_coordinates));
-            }
-            result.SetStrokeColor(maprender.GetColorPalette()[i]).SetStrokeWidth(maprender.GetLine_width()).
-                SetFillColor(svg::NoneColor).SetStrokeLineCap(svg::StrokeLineCap::ROUND).SetStrokeLineJoin(svg::StrokeLineJoin::ROUND);
-            doc.Add(std::move(result));
-            ++i;
-        }
-        
-    }
-
-    void JsonInformation::RenderBusLabels(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses,
-        const renderer::SphereProjector& proj, svg::Document& doc) const {
-        int i = 0;
-        int max_color_palette = maprender.GetColorPalette().size();
-        for (const auto& bus : buses) {
-            svg::Text substrate;
-            substrate.SetPosition(proj(bus->stops[0]->stop_coordinates)).SetOffset({ maprender.GetBusLabelOffset()[0],maprender.GetBusLabelOffset()[1] }).
-                SetFontSize(maprender.GetBusLabelFontSize()).SetFontFamily("Verdana"s).SetFontWeight("bold"s).SetData(bus->name);
-            svg::Text text = substrate;
-            substrate.SetFillColor(maprender.GetUnderlayerColor()).SetStrokeColor(maprender.GetUnderlayerColor()).
-                SetStrokeWidth(maprender.GetUnderlayerWidth()).SetStrokeLineCap(svg::StrokeLineCap::ROUND).SetStrokeLineJoin(svg::StrokeLineJoin::ROUND);
-            text.SetFillColor(maprender.GetColorPalette()[i % max_color_palette]);
-            if (bus->last_stop != std::nullopt) {
-                svg::Text substrate_end_stop = substrate;
-                svg::Text text_end_stop = text;
-                Coordinates point = bus->last_stop.value()->stop_coordinates;
-                substrate_end_stop.SetPosition(proj(point));
-                text_end_stop.SetPosition(proj(point));
-                doc.Add(std::move(substrate));
-                doc.Add(std::move(text));
-                doc.Add(std::move(substrate_end_stop));
-                doc.Add(std::move(text_end_stop));
-            }
-            else {
-                doc.Add(std::move(substrate));
-                doc.Add(std::move(text));
-            }
-            ++i;
-        }
-    }
-    void JsonInformation::RenderStopPoints(const renderer::MapRenderer& maprender, const std::vector<domain::Stop*>& stops,
-        const renderer::SphereProjector& proj, svg::Document& doc) const {
-        for (const auto& stop : stops) {
-            svg::Circle circle;
-            circle.SetCenter(proj(stop->stop_coordinates)).SetRadius(maprender.GetStop_radius()).SetFillColor("white"s);
-            doc.Add(std::move(circle));
-        }
-    }
-
-    void JsonInformation::RenderStopLabels(const renderer::MapRenderer& maprender, const std::vector<domain::Stop*>& stops,
-            const renderer::SphereProjector& proj, svg::Document& doc) const {
-        for (const auto& stop : stops) {
-            svg::Text substrate;
-            substrate.SetPosition(proj(stop->stop_coordinates)).SetOffset({ maprender.GetStopLabelOffset()[0],maprender.GetStopLabelOffset()[1] }).
-                SetFontSize(maprender.GetStopLabelFontSize()).SetFontFamily("Verdana"s).SetData(stop->name);
-            svg::Text text = substrate;
-            substrate.SetFillColor(maprender.GetUnderlayerColor()).SetStrokeColor(maprender.GetUnderlayerColor()).
-                SetStrokeWidth(maprender.GetUnderlayerWidth()).SetStrokeLineCap(svg::StrokeLineCap::ROUND).SetStrokeLineJoin(svg::StrokeLineJoin::ROUND);
-            text.SetFillColor("black"s);
-            doc.Add(std::move(substrate));
-            doc.Add(std::move(text));
-        }
-    }
+    }   
  }
