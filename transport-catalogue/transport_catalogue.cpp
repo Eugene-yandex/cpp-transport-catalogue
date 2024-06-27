@@ -26,14 +26,14 @@ namespace catalog {
 	}
 
 
-	void TransportCatalogue::AddBus(const std::string& bus, const std::pair<std::vector<std::string_view>, std::optional<std::string_view>>& stops) {
+	void TransportCatalogue::AddBus(const std::string& bus, const std::vector<std::string_view>& stops, const std::optional<std::string_view>& end_stop) {
 		std::vector<domain::Stop*> result;
 		buses_.push_back({ bus, result,std::nullopt });
-		if (!stops.first.empty()) {
+		if (!stops.empty()) {
 			noempty_bus.push_back(&buses_.back());
-			for (auto stop : stops.first) {
+			for (auto stop : stops) {
 				auto stop_ptr = search_stop_.at(stop);
-				if (stops.second == stop && buses_.back().last_stop == std::nullopt) {
+				if (end_stop == stop && buses_.back().last_stop == std::nullopt) {
 					buses_.back().last_stop = stop_ptr;
 				}
 				result.push_back(stop_ptr);
@@ -82,5 +82,31 @@ namespace catalog {
 			std::sort(result.begin(), result.end());
 			return result;
 		}
+	}
+
+	std::optional<domain::BusInformation> TransportCatalogue::GetBusInfo(std::string_view bus) const {
+
+		domain::BusInformation result;
+		auto bus_ptr = FindBus(bus);
+		if (!bus_ptr) {
+			return std::nullopt;
+		}
+		result.count_stops = bus_ptr->stops.size();
+
+		for (int stop_index = 0; stop_index < result.count_stops; ++stop_index) {
+			auto stop = bus_ptr->stops[stop_index];
+			auto poisk = std::find(bus_ptr->stops.begin(), bus_ptr->stops.begin() + stop_index, stop);
+			if (poisk == bus_ptr->stops.begin() + stop_index) {
+				++result.unique_stops;
+			}
+			if (stop_index == result.count_stops - 1) {
+				continue;
+			}
+			auto next_stop = bus_ptr->stops[stop_index + 1];
+			result.route_length_real += ComputeDistanceRealDistance(stop, next_stop);
+			result.route_length_geographical_coordinates += ComputeDistanceGeographicalCoordinates(stop->stop_coordinates, next_stop->stop_coordinates);
+		}
+
+		return result;
 	}
 }
