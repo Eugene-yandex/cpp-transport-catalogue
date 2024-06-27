@@ -8,7 +8,7 @@ using namespace std;
 
 int main() {
     catalog::TransportCatalogue catalogue;
-    jreader::JsonInformation ji(cin);
+    jreader::JSONReader ji(cin);
     ji.CreateDatabase(catalogue);
     ji.PrintStat(catalogue, cout);
 }
