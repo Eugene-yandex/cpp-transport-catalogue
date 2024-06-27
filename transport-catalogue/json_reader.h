@@ -17,9 +17,9 @@ namespace jreader{
         std::unordered_map<std::string, int> distance;
     };
 
-    class JsonInformation {
+    class JSONReader {
     public:
-        JsonInformation(std::istream& input);
+        JSONReader(std::istream& input);
         void CreateDatabase(catalog::TransportCatalogue& catalogue);
         void PrintStat(const catalog::TransportCatalogue& tansport_catalogue, std::ostream& output);
 
@@ -36,16 +36,8 @@ namespace jreader{
         json::Dict PrintStop(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
         svg::Color GetColorRenderSettings(const json::Node& node) const;
         renderer::MapRenderer MakeMapRenderer() const;
-        void RenderLine(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses,
-            const renderer::SphereProjector& proj, svg::Document& doc) const;
-        void RenderBusLabels(const renderer::MapRenderer& maprender, const std::deque<domain::Bus*>& buses,
-            const renderer::SphereProjector& proj, svg::Document& doc) const;
-        void RenderStopPoints(const renderer::MapRenderer& maprender, const std::vector<domain::Stop*>& stop,
-            const renderer::SphereProjector& proj, svg::Document& doc) const;
-        void RenderStopLabels(const renderer::MapRenderer& maprender, const std::vector<domain::Stop*>& stop,
-            const renderer::SphereProjector& proj, svg::Document& doc) const; 
-        svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
         json::Dict PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const;
+        svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
 
     };
 }
