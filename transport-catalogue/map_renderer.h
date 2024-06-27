@@ -1,7 +1,9 @@
 #include "geo.h"
 #include "svg.h"
+#include "domain.h"
 
 #include <algorithm>
+#include <deque>
 #include <cstdlib>
 #include <iostream>
 #include <optional>
@@ -27,6 +29,70 @@ namespace renderer {
         std::vector<svg::Color> color_palette = {};
     };
 
+    class SphereProjector {
+    public:
+        // points_begin Рё points_end Р·Р°РґР°СЋС‚ РЅР°С‡Р°Р»Рѕ Рё РєРѕРЅРµС† РёРЅС‚РµСЂРІР°Р»Р° СЌР»РµРјРµРЅС‚РѕРІ geo::Coordinates
+        template <typename PointInputIt>
+        SphereProjector(PointInputIt points_begin, PointInputIt points_end,
+            double max_width, double max_height, double padding)
+            : padding_(padding) //
+        {
+            // Р•СЃР»Рё С‚РѕС‡РєРё РїРѕРІРµСЂС…РЅРѕСЃС‚Рё СЃС„РµСЂС‹ РЅРµ Р·Р°РґР°РЅС‹, РІС‹С‡РёСЃР»СЏС‚СЊ РЅРµС‡РµРіРѕ
+            if (points_begin == points_end) {
+                return;
+            }
+
+            // РќР°С…РѕРґРёРј С‚РѕС‡РєРё СЃ РјРёРЅРёРјР°Р»СЊРЅРѕР№ Рё РјР°РєСЃРёРјР°Р»СЊРЅРѕР№ РґРѕР»РіРѕС‚РѕР№
+            const auto [left_it, right_it] = std::minmax_element(
+                points_begin, points_end,
+                [](auto lhs, auto rhs) { return lhs->stop_coordinates.lng < rhs->stop_coordinates.lng; });
+            min_lon_ = (*left_it)->stop_coordinates.lng;
+            const double max_lon = (*right_it)->stop_coordinates.lng;
+
+            // РќР°С…РѕРґРёРј С‚РѕС‡РєРё СЃ РјРёРЅРёРјР°Р»СЊРЅРѕР№ Рё РјР°РєСЃРёРјР°Р»СЊРЅРѕР№ С€РёСЂРѕС‚РѕР№
+            const auto [bottom_it, top_it] = std::minmax_element(
+                points_begin, points_end,
+                [](auto lhs, auto rhs) { return lhs->stop_coordinates.lat < rhs->stop_coordinates.lat; });
+            const double min_lat = (*bottom_it)->stop_coordinates.lat;
+            max_lat_ = (*top_it)->stop_coordinates.lat;
+
+            // Р’С‹С‡РёСЃР»СЏРµРј РєРѕСЌС„С„РёС†РёРµРЅС‚ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёСЏ РІРґРѕР»СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ x
+            std::optional<double> width_zoom;
+            if (!IsZero(max_lon - min_lon_)) {
+                width_zoom = (max_width - 2 * padding) / (max_lon - min_lon_);
+            }
+
+            // Р’С‹С‡РёСЃР»СЏРµРј РєРѕСЌС„С„РёС†РёРµРЅС‚ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёСЏ РІРґРѕР»СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ y
+            std::optional<double> height_zoom;
+            if (!IsZero(max_lat_ - min_lat)) {
+                height_zoom = (max_height - 2 * padding) / (max_lat_ - min_lat);
+            }
+
+            if (width_zoom && height_zoom) {
+                // РљРѕСЌС„С„РёС†РёРµРЅС‚С‹ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёСЏ РїРѕ С€РёСЂРёРЅРµ Рё РІС‹СЃРѕС‚Рµ РЅРµРЅСѓР»РµРІС‹Рµ,
+                // Р±РµСЂС‘Рј РјРёРЅРёРјР°Р»СЊРЅС‹Р№ РёР· РЅРёС…
+                zoom_coeff_ = std::min(*width_zoom, *height_zoom);
+            }
+            else if (width_zoom) {
+                // РљРѕСЌС„С„РёС†РёРµРЅС‚ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёСЏ РїРѕ С€РёСЂРёРЅРµ РЅРµРЅСѓР»РµРІРѕР№, РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ
+                zoom_coeff_ = *width_zoom;
+            }
+            else if (height_zoom) {
+                // РљРѕСЌС„С„РёС†РёРµРЅС‚ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёСЏ РїРѕ РІС‹СЃРѕС‚Рµ РЅРµРЅСѓР»РµРІРѕР№, РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ
+                zoom_coeff_ = *height_zoom;
+            }
+        }
+
+        // РџСЂРѕРµС†РёСЂСѓРµС‚ С€РёСЂРѕС‚Сѓ Рё РґРѕР»РіРѕС‚Сѓ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІРЅСѓС‚СЂРё SVG-РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
+        svg::Point operator()(Coordinates coords) const;
+
+    private:
+        double padding_;
+        double min_lon_ = 0;
+        double max_lat_ = 0;
+        double zoom_coeff_ = 0;
+    };
+
     class MapRenderer {
     public:
 
@@ -42,76 +108,19 @@ namespace renderer {
         int GetBusLabelFontSize() const;
         int GetStopLabelFontSize() const;
         double GetUnderlayerWidth() const;
-        std::vector<double> GetBusLabelOffset() const;
-        std::vector<double> GetStopLabelOffset() const;
+        const std::vector<double>& GetBusLabelOffset() const;
+        const std::vector<double>& GetStopLabelOffset() const;
         svg::Color GetUnderlayerColor() const;
-        std::vector<svg::Color> GetColorPalette() const;
+        const std::vector<svg::Color>& GetColorPalette() const;
+
+        void RenderLine(const std::deque<domain::Bus*>& buses, const SphereProjector& proj, svg::Document& doc) const;
+        void RenderBusLabels(const std::deque<domain::Bus*>& buses, const SphereProjector& proj, svg::Document& doc) const;
+        void RenderStopPoints(const std::vector<domain::Stop*>& stop, const SphereProjector& proj, svg::Document& doc) const;
+        void RenderStopLabels(const std::vector<domain::Stop*>& stop, const SphereProjector& proj, svg::Document& doc) const;
                 
     private:
         MapParameters mp_;
     };
 
-    class SphereProjector {
-    public:
-        // points_begin и points_end задают начало и конец интервала элементов geo::Coordinates
-        template <typename PointInputIt>
-        SphereProjector(PointInputIt points_begin, PointInputIt points_end,
-            double max_width, double max_height, double padding)
-            : padding_(padding) //
-        {
-            // Если точки поверхности сферы не заданы, вычислять нечего
-            if (points_begin == points_end) {
-                return;
-            }
-
-            // Находим точки с минимальной и максимальной долготой
-            const auto [left_it, right_it] = std::minmax_element(
-                points_begin, points_end,
-                [](auto lhs, auto rhs) { return lhs->stop_coordinates.lng < rhs->stop_coordinates.lng; });
-            min_lon_ = (*left_it)-> stop_coordinates.lng;
-            const double max_lon = (*right_it)->stop_coordinates.lng;
-
-            // Находим точки с минимальной и максимальной широтой
-            const auto [bottom_it, top_it] = std::minmax_element(
-                points_begin, points_end,
-                [](auto lhs, auto rhs) { return lhs->stop_coordinates.lat < rhs->stop_coordinates.lat; });
-            const double min_lat = (*bottom_it)->stop_coordinates.lat;
-            max_lat_ = (*top_it)->stop_coordinates.lat;
-
-            // Вычисляем коэффициент масштабирования вдоль координаты x
-            std::optional<double> width_zoom;
-            if (!IsZero(max_lon - min_lon_)) {
-                width_zoom = (max_width - 2 * padding) / (max_lon - min_lon_);
-            }
-
-            // Вычисляем коэффициент масштабирования вдоль координаты y
-            std::optional<double> height_zoom;
-            if (!IsZero(max_lat_ - min_lat)) {
-                height_zoom = (max_height - 2 * padding) / (max_lat_ - min_lat);
-            }
-
-            if (width_zoom && height_zoom) {
-                // Коэффициенты масштабирования по ширине и высоте ненулевые,
-                // берём минимальный из них
-                zoom_coeff_ = std::min(*width_zoom, *height_zoom);
-            }
-            else if (width_zoom) {
-                // Коэффициент масштабирования по ширине ненулевой, используем его
-                zoom_coeff_ = *width_zoom;
-            }
-            else if (height_zoom) {
-                // Коэффициент масштабирования по высоте ненулевой, используем его
-                zoom_coeff_ = *height_zoom;
-            }
-        }
-
-        // Проецирует широту и долготу в координаты внутри SVG-изображения
-        svg::Point operator()(Coordinates coords) const;
-
-    private:
-        double padding_;
-        double min_lon_ = 0;
-        double max_lat_ = 0;
-        double zoom_coeff_ = 0;
-    };
+   
 }
