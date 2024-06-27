@@ -24,7 +24,7 @@ namespace catalog {
 
 		void AddStop(const std::string& stop, const Coordinates& coordinates);
 		void AddDistance(const std::string_view stop1, const std::string_view stop2, int distance);
-		void AddBus(const std::string& bus, const  std::pair<std::vector<std::string_view>, std::optional<std::string_view>>& stops);
+		void AddBus(const std::string& bus, const std::vector<std::string_view>& stops, const std::optional<std::string_view>& end_stop);
 
 		const domain::Stop* FindStop(std::string_view stop) const;
 		const domain::Bus* FindBus(std::string_view bus) const;
@@ -32,7 +32,7 @@ namespace catalog {
 		const std::vector<std::string_view> GetStopInfo(std::string_view stop) const;
 		int ComputeDistanceRealDistance(domain::Stop* from, domain::Stop* to) const;
 		const std::deque<domain::Bus*> GetNoEmptyBus() const;
-
+		std::optional<domain::BusInformation> GetBusInfo(std::string_view bus) const;
 
 	private:
 		std::deque<domain::Stop> stops_;
