@@ -24,6 +24,7 @@ namespace json {
     public:
         using Value = std::variant<std::nullptr_t, int, double, std::string, bool, Array, Dict>;
         Node() = default;
+        Node(Value&& val);
         Node(std::nullptr_t);
         Node(Array array);
         Node(Dict map);
@@ -49,6 +50,7 @@ namespace json {
         const Dict& AsMap() const;
 
         const Value& GetValue() const;
+        Value& GetNotConstValue();
 
     private:
         Value value_;

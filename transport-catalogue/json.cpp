@@ -185,6 +185,10 @@ namespace json {
         }
 
     }  // namespace
+    Node::Node(Value&& val) :
+        value_(std::move(val)){
+
+    }
 
     Node::Node(std::nullptr_t)
         : value_(nullptr) {
@@ -216,6 +220,10 @@ namespace json {
 
     }
     const Node::Value& Node::GetValue() const {
+        return value_;
+    }
+
+    Node::Value& Node::GetNotConstValue() {
         return value_;
     }
 

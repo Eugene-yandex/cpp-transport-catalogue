@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <string>
 #include <sstream>
+#include "json_builder.h"
 
 namespace jreader {
     using namespace std::literals;
@@ -34,7 +35,7 @@ namespace jreader {
     }
 
     void JSONReader::ApplyCommandsStop([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // Р РµР°Р»РёР·СѓР№С‚Рµ РјРµС‚РѕРґ СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ
+        // Реализуйте метод самостоятельно
         std::vector<DescriptionCommandStop> description_stops;
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Stop"s) {
@@ -65,9 +66,9 @@ namespace jreader {
         return result;
     }
 
-    //РїРѕРЅСЂР°РІРёР»Р°СЃСЊ РёРґРµСЏ РїРµСЂРµРЅРµСЃС‚Рё СЂРµР°Р»РёР·Р°С†РёСЋ С„СѓРЅРєС†РёРё AddRoute РІ ApplyCommandsBus
+    //понравилась идея перенести реализацию функции AddRoute в ApplyCommandsBus
     void JSONReader::ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // Р РµР°Р»РёР·СѓР№С‚Рµ РјРµС‚РѕРґ СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ
+        // Реализуйте метод самостоятельно
 
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Bus"s) {
@@ -90,43 +91,43 @@ namespace jreader {
         }   
     }
 
-    json::Dict JSONReader::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
-        json::Dict result;
-        result.insert({ "request_id"s, id });
+    json::Node JSONReader::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
+        json::Builder bild{};
+        bild.StartDict().Key("request_id"s).Value(id);
         auto bus_info = tansport_catalogue.GetBusInfo(name);
         if (!bus_info) {
-            result.insert({ "error_message"s, json::Node{"not found"s} });
+            bild.Key("error_message"s).Value("not found"s);
         }
         else {
-            result.insert({ "curvature"s, bus_info.value().route_length_real / bus_info.value().route_length_geographical_coordinates });
-            result.insert({ "route_length"s, bus_info.value().route_length_real });
-            result.insert({ "stop_count"s, bus_info.value().count_stops });
-            result.insert({ "unique_stop_count"s, bus_info.value().unique_stops });
+            bild.Key("curvature"s).Value(bus_info.value().route_length_real / bus_info.value().route_length_geographical_coordinates);
+            bild.Key("route_length"s).Value(bus_info.value().route_length_real);
+            bild.Key("stop_count"s).Value(bus_info.value().count_stops);
+            bild.Key("unique_stop_count"s).Value(bus_info.value().unique_stops);
         }
-        return result;
+        return bild.EndDict().Build();
     }
 
-    json::Dict JSONReader::PrintStop(const catalog::TransportCatalogue& tansport_catalogue,
+    json::Node JSONReader::PrintStop(const catalog::TransportCatalogue& tansport_catalogue,
         int id, std::string_view name) {
-        json::Dict result;
-        result.insert({ "request_id"s, id });
+        json::Builder bild{};
+        bild.StartDict().Key("request_id"s).Value(id);
         auto stops = tansport_catalogue.GetStopInfo(name);
         json::Array result_stop;
         if (stops.size() == 0) {
-            result.insert({ "error_message"s, json::Node{"not found"s} });
+            bild.Key("error_message"s).Value("not found"s);
         }
         else if (stops.size() == 1 && stops[0] == "no buses"sv) {
-            result.insert({ "buses"s, result_stop });
+            bild.Key("buses"s).Value(result_stop);
 
         }
         else {
             for (const auto& stop : stops) {
                 result_stop.emplace_back(json::Node(std::string(stop)));
             }
-            result.insert({ "buses"s, result_stop });
+            bild.Key("buses"s).Value(result_stop);
 
         }
-        return result;
+        return bild.EndDict().Build();
     }
 
     renderer::MapRenderer JSONReader::MakeMapRenderer() const {
@@ -202,14 +203,14 @@ namespace jreader {
         }
     }
 
-    json::Dict JSONReader::PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const{
-        json::Dict result;
-        result.insert({ "request_id"s, id }); 
+    json::Node JSONReader::PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const{
+        json::Builder bild{};
+        bild.StartDict().Key("request_id"s).Value(id);
         std::ostringstream out;
         svg::Document doc = RenderMap(tansport_catalogue);
         doc.Render(out);
-        result.insert({ "map"s, out.str() });
-        return result;
+        bild.Key("map"s).Value(out.str());
+        return bild.EndDict().Build();
     }
 
     svg::Document JSONReader::RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const {
@@ -241,5 +242,7 @@ namespace jreader {
         maprender.RenderStopPoints(stops, proj, doc);
         maprender.RenderStopLabels(stops, proj, doc);
         return doc;
-    }   
+    }
+
+   
  }

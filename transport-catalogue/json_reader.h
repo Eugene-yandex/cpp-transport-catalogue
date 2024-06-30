@@ -32,11 +32,11 @@ namespace jreader{
         void ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue);
         DescriptionCommandStop AddDescriptionCommandStop(const json::Dict& map_info);
         std::pair<std::vector<std::string_view>, std::optional<std::string_view>> AddRoute(const json::Array& stops, bool ring);
-        json::Dict PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
-        json::Dict PrintStop(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
+        json::Node PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
+        json::Node PrintStop(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name);
         svg::Color GetColorRenderSettings(const json::Node& node) const;
         renderer::MapRenderer MakeMapRenderer() const;
-        json::Dict PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const;
+        json::Node PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const;
         svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
 
     };
