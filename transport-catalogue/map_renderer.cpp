@@ -120,7 +120,7 @@ namespace renderer {
             doc.Add(std::move(text));
         }
     }
-    // РџСЂРѕРµС†РёСЂСѓРµС‚ С€РёСЂРѕС‚Сѓ Рё РґРѕР»РіРѕС‚Сѓ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІРЅСѓС‚СЂРё SVG-РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
+    // Проецирует широту и долготу в координаты внутри SVG-изображения
     svg::Point SphereProjector::operator()(Coordinates coords) const {
         return {
             (coords.lng - min_lon_) * zoom_coeff_ + padding_,

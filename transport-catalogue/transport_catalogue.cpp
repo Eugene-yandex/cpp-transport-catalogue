@@ -30,7 +30,7 @@ namespace catalog {
 		std::vector<domain::Stop*> result;
 		buses_.push_back({ bus, result,std::nullopt });
 		if (!stops.empty()) {
-			noempty_bus.push_back(&buses_.back());
+			noempty_bus_.push_back(&buses_.back());
 			for (auto stop : stops) {
 				auto stop_ptr = search_stop_.at(stop);
 				if (end_stop == stop && buses_.back().last_stop == std::nullopt) {
@@ -47,14 +47,37 @@ namespace catalog {
 
 	}
 
-	const domain::Stop* TransportCatalogue::FindStop(std::string_view stop) const {
+	size_t TransportCatalogue::GetStopsSize() const {
+		return stops_.size();
+	}
+
+	size_t TransportCatalogue::GetStopId(const domain::Stop* stop) const {
+		auto it = std::find_if(stops_.begin(),
+			stops_.end(),
+			[stop](const domain::Stop& ostanovka) {return stop == &ostanovka; });
+
+		return std::distance(stops_.begin(), it);
+	}
+
+	const std::string& TransportCatalogue::GetStopNamefromId(size_t id) const {
+		return stops_.at(id).name;
+	}
+
+	domain::Stop* TransportCatalogue::FindStop(std::string_view stop) const {
 		return search_stop_.count(stop) > 0 ? search_stop_.at(stop) : nullptr;
 	}
 
-	const domain::Bus* TransportCatalogue::FindBus(std::string_view bus) const {
+	domain::Bus* TransportCatalogue::FindBus(std::string_view bus) const {
 		return search_bus_.count(bus) > 0 ? search_bus_.at(bus) : nullptr;
 	}
-	int TransportCatalogue::ComputeDistanceRealDistance(domain::Stop* from, domain::Stop* to) const {
+	bool TransportCatalogue::AreBusesHaveStop(std::string_view str) const {
+		auto stop = search_stop_.count(str) > 0 ? search_stop_.at(str) : nullptr;
+		if (stop != nullptr) {
+			return buses_of_stop_.count(stop) > 0;
+		}
+		return false;
+	}
+	int TransportCatalogue::GetRealDistanceStops(domain::Stop* from, domain::Stop* to) const { 
 		if (distance_stops_.count({ from , to }) > 0) {
 			return distance_stops_.at({ from , to });
 		}
@@ -63,9 +86,10 @@ namespace catalog {
 		}
 	}
 
-	const std::deque<domain::Bus*> TransportCatalogue::GetNoEmptyBus() const {
-		return noempty_bus;
+	const std::deque<domain::Bus*>& TransportCatalogue::GetNoEmptyBus() const {
+		return noempty_bus_;
 	}
+
 
 	const std::vector<std::string_view> TransportCatalogue::GetStopInfo(std::string_view stop) const {
 		std::vector<std::string_view> result;
@@ -103,7 +127,7 @@ namespace catalog {
 				continue;
 			}
 			auto next_stop = bus_ptr->stops[stop_index + 1];
-			result.route_length_real += ComputeDistanceRealDistance(stop, next_stop);
+			result.route_length_real += GetRealDistanceStops(stop, next_stop);
 			result.route_length_geographical_coordinates += ComputeDistanceGeographicalCoordinates(stop->stop_coordinates, next_stop->stop_coordinates);
 		}
 

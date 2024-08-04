@@ -24,6 +24,9 @@ namespace jreader {
         if (tmp.GetRoot().AsMap().count("render_settings"s) > 0) {
             render_settings_ = tmp.GetRoot().AsMap().at("render_settings"s).AsMap();
         }
+        if (tmp.GetRoot().AsMap().count("routing_settings"s) > 0) {
+            routing_settings_ = tmp.GetRoot().AsMap().at("routing_settings"s).AsMap();
+        }
     }
 
     void JSONReader::CreateDatabase(catalog::TransportCatalogue& catalogue) {
@@ -91,7 +94,7 @@ namespace jreader {
         }   
     }
 
-    json::Node JSONReader::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) {
+    json::Node JSONReader::PrintBus(const catalog::TransportCatalogue& tansport_catalogue, int id, std::string_view name) const {
         json::Builder bild{};
         bild.StartDict().Key("request_id"s).Value(id);
         auto bus_info = tansport_catalogue.GetBusInfo(name);
@@ -108,7 +111,7 @@ namespace jreader {
     }
 
     json::Node JSONReader::PrintStop(const catalog::TransportCatalogue& tansport_catalogue,
-        int id, std::string_view name) {
+        int id, std::string_view name) const {
         json::Builder bild{};
         bild.StartDict().Key("request_id"s).Value(id);
         auto stops = tansport_catalogue.GetStopInfo(name);
@@ -185,6 +188,10 @@ namespace jreader {
         using namespace std::literals;
         if (!stat_requests_.empty()) {
             json::Array results; 
+            bool router_have = false;
+            transport_router::TransportRouter<double> transport_router(tansport_catalogue);
+            graph::DirectedWeightedGraph<double> graph;
+            graph::Router<double> router(graph);
             for (const auto& data : stat_requests_) {
                 int id = data.AsMap().at("id"s).AsInt();
                 if (data.AsMap().at("type"s) == "Bus"s) {
@@ -198,9 +205,52 @@ namespace jreader {
                 else if (data.AsMap().at("type"s) == "Map"s) {
                     results.emplace_back(PrintRenderMap(tansport_catalogue,id));
                 }
+                else if (data.AsMap().at("type"s) == "Route"s) {
+                    if (!router_have) {
+                        graph = transport_router.MakeGraph(routing_settings_.at("bus_wait_time"s).AsInt(), routing_settings_.at("bus_velocity"s).AsDouble());
+                        router.UpdateRouter();
+                        router_have = true;
+                    }
+                    std::string stop_from = data.AsMap().at("from"s).AsString();
+                    std::string stop_to = data.AsMap().at("to"s).AsString();
+                    results.emplace_back(PrintRoute(tansport_catalogue, graph, router, id, stop_from, stop_to));
+                }
             }
             json::Print(json::Document{ results }, output);
         }
+    }
+
+    json::Node JSONReader::PrintRoute(const catalog::TransportCatalogue& tansport_catalogue, const graph::DirectedWeightedGraph<double>& graph, const graph::Router<double>& router,
+        int id, std::string_view stop_from, std::string_view stop_to) const {
+        json::Builder bild{};
+        bild.StartDict().Key("request_id"s).Value(id);
+
+        if (!(tansport_catalogue.AreBusesHaveStop(stop_from) && tansport_catalogue.AreBusesHaveStop(stop_to))) {
+            bild.Key("error_message"s).Value("not found"s);
+        }
+        auto rout = router.BuildRoute(tansport_catalogue.GetStopId(tansport_catalogue.FindStop(stop_from)),
+            tansport_catalogue.GetStopId(tansport_catalogue.FindStop(stop_to)));
+        if (rout) {
+            size_t stops_count = tansport_catalogue.GetStopsSize();
+            bild.Key("total_time"s).Value(rout.value().weight).Key("items"s).StartArray();
+            for (const auto& edgeid : rout.value().edges) {
+                const auto& edge = graph.GetEdge(edgeid);
+                size_t id_stops = graph.GetEdge(edgeid).from;
+                if (graph.GetEdge(edgeid).to >= stops_count) {
+                    bild.StartDict().Key("type"s).Value("Wait"s).Key("stop_name").Value(tansport_catalogue.GetStopNamefromId(id_stops)).
+                        Key("time").Value(routing_settings_.at("bus_wait_time"s).AsInt()).EndDict();
+                }
+                else {
+                    bild.StartDict().Key("type"s).Value("Bus"s).Key("bus").Value(std::string(edge.bus)).
+                        Key("span_count").Value(static_cast<int>(edge.stops_distatce)).Key("time").Value(edge.weight).EndDict();
+                }
+            }
+            bild.EndArray();
+        }
+        else {
+            bild.Key("error_message"s).Value("not found"s);
+        }
+        return bild.EndDict().Build();
     }
 
     json::Node JSONReader::PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const{

@@ -65,6 +65,7 @@ namespace json {
 
         const Node& GetRoot() const;
 
+
     private:
         Node root_;
     };
