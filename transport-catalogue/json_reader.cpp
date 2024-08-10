@@ -1,4 +1,4 @@
-#include "json_reader.h"
+п»ї#include "json_reader.h"
 #include "request_handler.h"
 
 
@@ -38,7 +38,7 @@ namespace jreader {
     }
 
     void JSONReader::ApplyCommandsStop([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // Реализуйте метод самостоятельно
+        // Р РµР°Р»РёР·СѓР№С‚Рµ РјРµС‚РѕРґ СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ
         std::vector<DescriptionCommandStop> description_stops;
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Stop"s) {
@@ -69,9 +69,9 @@ namespace jreader {
         return result;
     }
 
-    //понравилась идея перенести реализацию функции AddRoute в ApplyCommandsBus
+    //РїРѕРЅСЂР°РІРёР»Р°СЃСЊ РёРґРµСЏ РїРµСЂРµРЅРµСЃС‚Рё СЂРµР°Р»РёР·Р°С†РёСЋ С„СѓРЅРєС†РёРё AddRoute РІ ApplyCommandsBus
     void JSONReader::ApplyCommandsBus([[maybe_unused]] catalog::TransportCatalogue& catalogue) {
-        // Реализуйте метод самостоятельно
+        // Р РµР°Р»РёР·СѓР№С‚Рµ РјРµС‚РѕРґ СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ
 
         for (const auto& data : base_requests_) {
             if (data.AsMap().at("type"s) == "Bus"s) {
@@ -188,10 +188,16 @@ namespace jreader {
         using namespace std::literals;
         if (!stat_requests_.empty()) {
             json::Array results; 
-            bool router_have = false;
-            transport_router::TransportRouter<double> transport_router(tansport_catalogue);
-            graph::DirectedWeightedGraph<double> graph;
-            graph::Router<double> router(graph);
+            auto router_have = std::find_if(std::begin(stat_requests_), std::end(stat_requests_), [](const json::Node& data) {
+                return data.AsMap().at("type"s) == "Route"s;
+                });
+            int bus_wait_time_ = 0;
+            double bus_velocity_ = 0;
+            if (router_have != std::end(stat_requests_)) {
+                bus_wait_time_ = routing_settings_.at("bus_wait_time"s).AsInt();
+                bus_velocity_ = routing_settings_.at("bus_velocity"s).AsDouble();
+            }
+            transport_router::TransportRouter<double> transport_router(tansport_catalogue, bus_wait_time_, bus_velocity_);
             for (const auto& data : stat_requests_) {
                 int id = data.AsMap().at("id"s).AsInt();
                 if (data.AsMap().at("type"s) == "Bus"s) {
@@ -206,21 +212,16 @@ namespace jreader {
                     results.emplace_back(PrintRenderMap(tansport_catalogue,id));
                 }
                 else if (data.AsMap().at("type"s) == "Route"s) {
-                    if (!router_have) {
-                        graph = transport_router.MakeGraph(routing_settings_.at("bus_wait_time"s).AsInt(), routing_settings_.at("bus_velocity"s).AsDouble());
-                        router.UpdateRouter();
-                        router_have = true;
-                    }
                     std::string stop_from = data.AsMap().at("from"s).AsString();
                     std::string stop_to = data.AsMap().at("to"s).AsString();
-                    results.emplace_back(PrintRoute(tansport_catalogue, graph, router, id, stop_from, stop_to));
+                    results.emplace_back(PrintRoute(tansport_catalogue, transport_router, id, stop_from, stop_to));
                 }
             }
             json::Print(json::Document{ results }, output);
         }
     }
 
-    json::Node JSONReader::PrintRoute(const catalog::TransportCatalogue& tansport_catalogue, const graph::DirectedWeightedGraph<double>& graph, const graph::Router<double>& router,
+    json::Node JSONReader::PrintRoute(const catalog::TransportCatalogue& tansport_catalogue, transport_router::TransportRouter<double>& transport_router,
         int id, std::string_view stop_from, std::string_view stop_to) const {
         json::Builder bild{};
         bild.StartDict().Key("request_id"s).Value(id);
@@ -228,21 +229,20 @@ namespace jreader {
         if (!(tansport_catalogue.AreBusesHaveStop(stop_from) && tansport_catalogue.AreBusesHaveStop(stop_to))) {
             bild.Key("error_message"s).Value("not found"s);
         }
-        auto rout = router.BuildRoute(tansport_catalogue.GetStopId(tansport_catalogue.FindStop(stop_from)),
-            tansport_catalogue.GetStopId(tansport_catalogue.FindStop(stop_to)));
+
+        auto rout = transport_router.FindRout(stop_from,stop_to);
         if (rout) {
-            size_t stops_count = tansport_catalogue.GetStopsSize();
             bild.Key("total_time"s).Value(rout.value().weight).Key("items"s).StartArray();
-            for (const auto& edgeid : rout.value().edges) {
-                const auto& edge = graph.GetEdge(edgeid);
-                size_t id_stops = graph.GetEdge(edgeid).from;
-                if (graph.GetEdge(edgeid).to >= stops_count) {
-                    bild.StartDict().Key("type"s).Value("Wait"s).Key("stop_name").Value(tansport_catalogue.GetStopNamefromId(id_stops)).
-                        Key("time").Value(routing_settings_.at("bus_wait_time"s).AsInt()).EndDict();
+            for (const auto& info : rout.value().steps) {
+                if (std::holds_alternative<typename transport_router::TransportRouter<double>::RouteWait>(info)) {
+                    auto rout_wait = std::get<typename transport_router::TransportRouter<double>::RouteWait>(info);
+                    bild.StartDict().Key("type"s).Value("Wait"s).Key("stop_name").Value(std::string(rout_wait.stop)).
+                        Key("time").Value(rout_wait.time).EndDict();
                 }
                 else {
-                    bild.StartDict().Key("type"s).Value("Bus"s).Key("bus").Value(std::string(edge.bus)).
-                        Key("span_count").Value(static_cast<int>(edge.stops_distatce)).Key("time").Value(edge.weight).EndDict();
+                    auto rout_bus = std::get<typename transport_router::TransportRouter<double>::RouteBus>(info);
+                    bild.StartDict().Key("type"s).Value("Bus"s).Key("bus").Value(std::string(rout_bus.bus)).
+                        Key("span_count").Value(static_cast<int>(rout_bus.span_count)).Key("time").Value(rout_bus.time).EndDict();
                 }
             }
             bild.EndArray();

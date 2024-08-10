@@ -42,7 +42,7 @@ namespace jreader{
         renderer::MapRenderer MakeMapRenderer() const;
         json::Node PrintRenderMap(const catalog::TransportCatalogue& tansport_catalogue, int id) const;
         svg::Document RenderMap(const catalog::TransportCatalogue& tansport_catalogue) const;
-        json::Node PrintRoute(const catalog::TransportCatalogue& tansport_catalogue, const graph::DirectedWeightedGraph<double>& graph, const graph::Router<double>& router,
+        json::Node PrintRoute(const catalog::TransportCatalogue& tansport_catalogue, transport_router::TransportRouter<double>& transport_router,
             int id, std::string_view from, std::string_view to) const;
 
     };
